@@ -1,0 +1,49 @@
+# Python bytecode en cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtuele omgevingen
+.venv/
+venv/
+env/
+ENV/
+
+# Python distributie/build-bestanden
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test- en coveragebestanden
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Type checkers en linters
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Environment variables en lokale configuratie
+.env
+.env.*
+!.env.example
+
+# IDE: Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Besturingssysteembestanden
+.DS_Store
+Thumbs.db
