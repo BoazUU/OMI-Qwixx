@@ -65,7 +65,7 @@ class Game:
         else:
             self.lst_player[player_index].inform_about_invalid_turn()
         return is_turn_valid
-
+    
     def _get_possibilities_active(self, lst_eyes, player_index) -> List[List[CrossPossibility]]:
         """creates a list of all possible fields to make a cross on (while active player)"""
         possibilities_white_white = self._find_possible_white_white_sum(lst_eyes, player_index)
@@ -84,7 +84,60 @@ class Game:
 
         assert(self.lst_boards[player_index].penalties < 4)
         possibility_lst.append([CrossPossibility(4, None)])
+
+        """ Filter possibilities where a row can be closed with four crosses in that row"""
+        possibility_lst = self._filter_invalid_last_field_combinations(possibility_lst, player_index)
+
         return possibility_lst
+    
+    def _filter_invalid_last_field_combinations(
+        self,
+        possibilities: List[List[CrossPossibility]],
+        player_index: int,
+    ) -> List[List[CrossPossibility]]:
+        """Filter ongeldige zetten voor het sluiten van een rij.
+
+        Bij precies vier bestaande crosses in een rij mag het laatste vakje
+        alleen als dezelfde zet ook een ander vakje in die rij aankruist.
+        """
+        board = self.lst_boards[player_index]
+        valid_possibilities = []
+
+        for possibility in possibilities:
+            is_valid = True
+
+            for cross in possibility:
+                # Penalty heeft geen rij en kan dus geen rij sluiten.
+                if cross.row is None:
+                    continue
+
+                # Laatste vakje is 12 voor rood/geel en 2 voor groen/blauw.
+                is_last_field = (
+                    (cross.row in (Row.RED, Row.YELLOW) and cross.eyes == 12)
+                    or (cross.row in (Row.GREEN, Row.BLUE) and cross.eyes == 2)
+                )
+
+                if not is_last_field:
+                    continue
+
+                crosses_in_row = board.row_numbers[cross.row]
+
+                # Er zijn vier bestaande crosses: deze beurt moet dan ook
+                # het vijfde vakje in dezelfde rij aankruisen.
+                if crosses_in_row == 4:
+                    crosses_in_same_row = sum(
+                        other_cross.row == cross.row
+                        for other_cross in possibility
+                    )
+
+                    if crosses_in_same_row < 2:
+                        is_valid = False
+                        break
+
+            if is_valid:
+                valid_possibilities.append(possibility)
+
+        return valid_possibilities
 
     def _find_possible_white_white_sum(self, lst_eyes, player_index) -> List[List[CrossPossibility]]:
         """finds all possible fields that can be crossed with the sum of the 2 white dice"""
@@ -106,25 +159,23 @@ class Game:
     def _get_possibilities_passive(self, lst_eyes, player_index) -> List[List[CrossPossibility]]:
         """creates a list of all possible fields to make a cross on (while passive player)"""
         possibility_lst = self._find_possible_white_white_sum(lst_eyes, player_index)
-        assert (self.lst_boards[player_index].penalties < 4)
-        possibility_lst.append([CrossPossibility(4, None)])
         possibility_lst.append([])
         return possibility_lst
 
     def _check_possibility_rules(self, row, white_plus_a_dice_sum, player_index) -> List[List[CrossPossibility]]:
-        """checks witch possible fields are allowed to be crossed"""
+        """checks witch possible fields are allowed to be crossed""" """CHANED VALUE 5 TO 4 TO CHECK IF ROW CAN BE CLOSED"""
         possibilities_white_plus_a_dice = []
         if row in (Row.RED, Row.YELLOW):
             if not self.completed_lines[row] and self.lst_boards[player_index].row_limits[
                 row] < white_plus_a_dice_sum and (
                     (self.lst_boards[player_index].row_numbers[
-                         row] >= 5 and white_plus_a_dice_sum == 12) or white_plus_a_dice_sum < 12):
+                         row] >= 4 and white_plus_a_dice_sum == 12) or white_plus_a_dice_sum < 12):
                 possibilities_white_plus_a_dice.append([CrossPossibility(row, white_plus_a_dice_sum)])
         else:
             if not self.completed_lines[row] and self.lst_boards[player_index].row_limits[
                 row] > white_plus_a_dice_sum and (
                     (self.lst_boards[player_index].row_numbers[
-                         row] >= 5 and white_plus_a_dice_sum == 2) or white_plus_a_dice_sum > 2):
+                         row] >= 4 and white_plus_a_dice_sum == 2) or white_plus_a_dice_sum > 2):
                 possibilities_white_plus_a_dice.append([CrossPossibility(row, white_plus_a_dice_sum)])
         return possibilities_white_plus_a_dice
 
@@ -190,11 +241,11 @@ class Game:
                     else:
                         self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player,
                                                                         is_active_player)
+                    if self._is_completed():
+                        game_in_progress = False
+
                 if prints_points:
                     print(self.compute_ranking())
-
-                if self._is_completed():
-                    game_in_progress = False
 
                 # inform all players about new game situation AFTER they made their turns
                 for player_index in range(self.player_count):
