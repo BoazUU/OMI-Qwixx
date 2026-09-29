@@ -9,6 +9,8 @@ from player import CrossPossibility, Player
 from ui_pygame import PyGameUi
 import pickle
 
+from bot_q_learning import QBot
+from trainingslogger import TrainingLogger
 
 class Game:
     """role of the Game Master;
@@ -226,10 +228,25 @@ class Game:
             if len(turns) == 2:
                 is_turn_valid = self._make_valid_turn(player_index, turns[1], valid_turns, is_active_player, turns[0])
 
-    def play(self, prints_points=False) -> None:
+    def play(self, prints_points=False, log=False) -> None:
         """manages the run of a game (Game Master) until the game is completed; directs when the players are prompted to
          do their turns; also used by the trainer"""
         game_in_progress = True
+
+        logger = TrainingLogger(
+            save_directory="training_results",
+            metadata={
+                "agent": "QBot1",
+                "gamma": 0.99,
+                "alpha": 0.01,
+                "episodes": itterations,
+                }
+            )   
+
+        """Start logging"""
+        if (log):
+            logger.start_episode(episode=itteration, epsilon=q_bot1.epsilon)   
+
         while game_in_progress:
             for active_player_index in range(self.player_count):
                 lst_eyes = self.dice.throw_dice()
@@ -239,8 +256,22 @@ class Game:
                     if isinstance(player, HumanPlayer) and is_active_player:
                         self._make_turns_for_active_human_player(lst_eyes, player_index, player, is_active_player)
                     else:
-                        self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player,
-                                                                        is_active_player)
+                        self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player, is_active_player)
+
+                        """Log all game data"""
+                        if (log & isinstance(player, QBot)):
+                            logger.log_step(
+                                state=q_bot1.state,
+                                action=q_bot1.action,
+                                reward=q_bot1.reward,
+                                q_value=q_bot1.q_value,
+                                target=q_bot1.target,
+                                delta=q_bot1.delta,
+                                epsilon=q_bot1.epsilon,
+                                theta=q_bot1.theta,
+                                finished=q_bot1.finished,
+                                status=q_bot1.status)
+                    
                     if self._is_completed():
                         game_in_progress = False
 
@@ -252,7 +283,20 @@ class Game:
                     self.lst_player[player_index].inform(self.lst_boards, player_index)
 
                 if not game_in_progress:
-                    break                   # todo execute turns for all players and evaluate turns (separate)
+                     """Stop logging"""
+                     if (log):
+                        logger.end_episode(
+                            won=q_bot1.won,
+                            status=q_bot1.status,
+                            theta=q_bot1.theta,
+                        )
+                        break                   # todo execute turns for all players and evaluate turns (separate)
+
+    """Added for QBot"""
+    def get_state():
+        return
+
+
 
 
 def load_best_ai():
@@ -263,17 +307,41 @@ def load_best_ai():
     return best_ai
 
 
+"""Playin main"""
+# if __name__ == "__main__":
+#     ui = PyGameUi()
+#     ui.show_board()
+#     # ai_opponent = load_best_ai()
+
+
+
+#     # game = Game([HumanPlayer("meep", ui),
+#                  # AiPlayer("meeep", np.random.randn(18), np.random.randn(18), np.random.randn(18))])
+
+#     game = Game([HumanPlayer("visitor", ui),
+#                  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
+#                           SampleStrategies.alpha_qwixx_bias)])
+
+#     """Running simulations with the q-learning bot"""
+#     game = Game([QBot("QBot1", game),
+#                  QBot("QBOt2", game)])
+    
+#     game.play(True)
+
+
+"""Training main"""
 if __name__ == "__main__":
-    ui = PyGameUi()
-    ui.show_board()
-    # ai_opponent = load_best_ai()
 
+    """Running simulations with the q-learning bot"""
+    itterations = 1
+   
+    game = None
+    
+    q_bot1 = QBot("QBot1", game)
+    q_bot2 = QBot("QBOt2", game)
 
+    for itteration in range(itterations):        
+        game = Game([q_bot1, q_bot2])
+        game.play(True)
 
-    # game = Game([HumanPlayer("meep", ui),
-                 # AiPlayer("meeep", np.random.randn(18), np.random.randn(18), np.random.randn(18))])
-
-    game = Game([HumanPlayer("visitor", ui),
-                 AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
-                          SampleStrategies.alpha_qwixx_bias)])
-    game.play(True)
+    print("DONE")
