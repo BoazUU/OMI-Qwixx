@@ -239,13 +239,13 @@ class Game:
                 "agent": "QBot1",
                 "gamma": 0.99,
                 "alpha": 0.01,
-                "episodes": itterations,
+                "episodes": -1,
                 }
             )   
 
         """Start logging"""
         if (log):
-            logger.start_episode(episode=itteration, epsilon=q_bot1.epsilon)   
+            logger.start_episode(episode=-1, epsilon=q_bot1.epsilon)   
 
         while game_in_progress:
             for active_player_index in range(self.player_count):
@@ -261,12 +261,7 @@ class Game:
                         """Log all game data"""
                         if (log & isinstance(player, QBot)):
                             logger.log_step(
-                                state=q_bot1.state,
                                 action=q_bot1.action,
-                                reward=q_bot1.reward,
-                                q_value=q_bot1.q_value,
-                                target=q_bot1.target,
-                                delta=q_bot1.delta,
                                 epsilon=q_bot1.epsilon,
                                 theta=q_bot1.theta,
                                 finished=q_bot1.finished,
@@ -286,18 +281,18 @@ class Game:
                      """Stop logging"""
                      if (log):
                         logger.end_episode(
-                            won=q_bot1.won,
+                            won=q_bot1.finished,
                             status=q_bot1.status,
                             theta=q_bot1.theta,
                         )
+
+                        logger.save()
                         break                   # todo execute turns for all players and evaluate turns (separate)
 
     """Added for QBot"""
-    def get_state():
-        return
-
-
-
+    def get_state(self):
+        return 1
+        
 
 def load_best_ai():
     """loads the AI that was saved"""
@@ -307,7 +302,7 @@ def load_best_ai():
     return best_ai
 
 
-"""Playin main"""
+# """Playin main"""
 # if __name__ == "__main__":
 #     ui = PyGameUi()
 #     ui.show_board()
@@ -331,17 +326,22 @@ def load_best_ai():
 
 """Training main"""
 if __name__ == "__main__":
+    iterations = 100
 
-    """Running simulations with the q-learning bot"""
-    itterations = 1
-   
-    game = None
-    
-    q_bot1 = QBot("QBot1", game)
-    q_bot2 = QBot("QBOt2", game)
+    q_bot1 = QBot("QBot1", None)
+    q_bot2 = QBot("QBot2", None)
 
-    for itteration in range(itterations):        
+    log = False
+    for iteration in range(iterations):
         game = Game([q_bot1, q_bot2])
-        game.play(True)
+
+        q_bot1.game = game
+        q_bot2.game = game
+
+        if(iteration % 10 == 0):
+            log = True
+
+        game.play(True, log = log)
+        log = False
 
     print("DONE")

@@ -15,11 +15,13 @@ class QBot(Player):
 
     def cross_active(self, lst_eyes, valid_turns, completed_lines):
         """return Return a option in the format: [CrossPossibility(4, None)]"""
-        """TODO"""
+        return self.step(self.game, valid_turns, self.theta, self.epsilon, 
+                         self.epsilon_min, self.epsilon_decay, self.gamma, self.alpha)
 
     def cross_passive(self, lst_eyes, valid_turns, completed_lines):
         """return Return a option in the format: [CrossPossibility(4, None)]"""
-
+        return self.step(self.game, valid_turns, self.theta, self.epsilon, 
+                                 self.epsilon_min, self.epsilon_decay, self.gamma, self.alpha)
 
 
 
@@ -41,7 +43,7 @@ class QBot(Player):
 
         """Variables"""
         self.gamma = 0.99
-        self.theta = np.zeros(len(self.get_features(self.state, self.action)))
+        self.theta = np.zeros(len(self.get_features(self.state)))
         self.alpha = 0.01
         self.delta = None
 
@@ -51,7 +53,7 @@ class QBot(Player):
         self.epsilon = self.epsilon_start
 
 
-    def get_features(self, state, action):
+    def get_features(self, state):
         """Phi values for all features"""
 
         features = np.array([
@@ -67,17 +69,17 @@ class QBot(Player):
     def q_value(self, state, action, theta):
         """Calcualte Q value by: Q(s, a; theta) = phi(s, a)^T * theta """
         
-        features = np.array(self.get_features(state, action))
+        features = np.array(self.get_features(state))
 
         return np.dot(features, theta)
 
     def all_q_values(self, state, action_space, theta):
 
         """Calculates q values for all actions"""
-        q_values = []
+        q_values = [None] * len(action_space)
 
         for i in range(len(action_space)):
-            q_values[i] = self.q_value(state, action_space[i])
+            q_values[i] = self.q_value(state, action_space[i], theta)
 
         return q_values
 
@@ -97,7 +99,7 @@ class QBot(Player):
             max_index = np.argmax(q_values)
             return action_space[max_index]
 
-    def r(self, finished, status) -> int:
+    def r(self, finished, status):
         if (finished):
             return status
         else:
@@ -105,14 +107,16 @@ class QBot(Player):
 
     def target(self, state, action_space, theta, gamma):
         """ Calculate target Q_value with the max q value of the next actions"""
-        finished = state._is_completed()
-        win = state
+        # finished = state._is_completed()
+        finished = False
+        status = 0
         
         q_values = self.all_q_values(state, action_space, theta)
         max_value = max(q_values)
-        r = r(finished, win)
+
+        r = self.r(finished, status)
         
-        return r + gamma * max_value * self.get_features()
+        return r + gamma * max_value * self.get_features(state)
 
 
 
@@ -120,13 +124,22 @@ class QBot(Player):
         state = game.get_state()
         
         action = self.epsilon_greedy(state, action_space, theta, epsilon)
-        q_value = QBot.q_value(state, action, theta, epsilon)
+        q_value = self.q_value(state, action, theta)
         
         """"Peform the action!"""
         state = ...
         
-        target = QBot.target(state, action_space, theta, gamma)
-        self.delta = target - q_value
+        target = self.target(state, action_space, theta, gamma)
+        delta = target - q_value
 
-        theta = theta + alpha * self.delta * self.get_features()
-        epsilon = max(epsilon_min, epsilon * epsilon_decay)
+        theta = theta + alpha * delta * self.get_features(state)
+
+        """Update values"""
+        self.action = action
+        self.theta = theta
+        self.delta = delta
+
+        if(self.finished):
+            self.epsilon = max(epsilon_min, epsilon * epsilon_decay)
+        
+        return action

@@ -1,0 +1,33 @@
+episode,step,action,reward,q_value,target,delta,loss,epsilon,finished,status
+-1,0,"[cp(Row.BLUE, 5), cp(Row.GREEN, 6)]",0.0,,,,,1.0,False,False
+-1,1,"[cp(Row.BLUE, 5), cp(Row.GREEN, 6)]",0.0,,,,,1.0,False,False
+-1,2,"[cp(Row.RED, 6)]",0.0,,,,,1.0,False,False
+-1,3,"[cp(Row.RED, 6)]",0.0,,,,,1.0,False,False
+-1,4,"[cp(Row.GREEN, 4)]",0.0,,,,,1.0,False,False
+-1,5,"[cp(Row.GREEN, 4)]",0.0,,,,,1.0,False,False
+-1,6,"[cp(Row.RED, 7)]",0.0,,,,,1.0,False,False
+-1,7,"[cp(Row.RED, 7)]",0.0,,,,,1.0,False,False
+-1,8,"[cp(Row.YELLOW, 5)]",0.0,,,,,1.0,False,False
+-1,9,"[cp(Row.YELLOW, 5)]",0.0,,,,,1.0,False,False
+-1,10,[],0.0,,,,,1.0,False,False
+-1,11,[],0.0,,,,,1.0,False,False
+-1,12,"[cp(Row.RED, 8)]",0.0,,,,,1.0,False,False
+-1,13,"[cp(Row.RED, 8)]",0.0,,,,,1.0,False,False
+-1,14,"[cp(Row.GREEN, 3)]",0.0,,,,,1.0,False,False
+-1,15,"[cp(Row.GREEN, 3)]",0.0,,,,,1.0,False,False
+-1,16,"[cp(Row.BLUE, 4)]",0.0,,,,,1.0,False,False
+-1,17,"[cp(Row.BLUE, 4)]",0.0,,,,,1.0,False,False
+-1,18,[],0.0,,,,,1.0,False,False
+-1,19,[],0.0,,,,,1.0,False,False
+-1,20,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,21,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,22,"[cp(Row.YELLOW, 9)]",0.0,,,,,1.0,False,False
+-1,23,"[cp(Row.YELLOW, 9)]",0.0,,,,,1.0,False,False
+-1,24,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,25,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,26,"[cp(Row.RED, 9)]",0.0,,,,,1.0,False,False
+-1,27,"[cp(Row.RED, 9)]",0.0,,,,,1.0,False,False
+-1,28,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,29,"[cp(4, None)]",0.0,,,,,1.0,False,False
+-1,30,[],0.0,,,,,1.0,False,False
+-1,31,[],0.0,,,,,1.0,False,False
