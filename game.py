@@ -4,6 +4,7 @@ from typing import List, Tuple
 from dice import Dice
 from board import Board, Row
 from ai_player import AiPlayer, SampleStrategies
+from simple_bot_player import SimpleBotPlayer
 from human_player import HumanPlayer
 from player import CrossPossibility, Player
 from ui_pygame import PyGameUi
@@ -273,7 +274,11 @@ if __name__ == "__main__":
     # game = Game([HumanPlayer("meep", ui),
                  # AiPlayer("meeep", np.random.randn(18), np.random.randn(18), np.random.randn(18))])
 
-    game = Game([HumanPlayer("visitor", ui),
-                 AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
-                          SampleStrategies.alpha_qwixx_bias)])
+    game = Game([
+                # HumanPlayer("visitor", ui),
+                SimpleBotPlayer("Bot1"),
+                SimpleBotPlayer("Bot2"),
+                # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
+                #     SampleStrategies.alpha_qwixx_bias)
+                ])
     game.play(True)
