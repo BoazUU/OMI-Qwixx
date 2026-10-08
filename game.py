@@ -337,12 +337,12 @@ def start_playing():
 def start_training():
     print("---STARTED---")
     
-    iterations = 500
+    iterations = 100
 
-    q_bot1 = QBot("QBot1", None, loadQBot("C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"))
+    q_bot1 = QBot("QBot1", None, loadQBot("C:/Users/j/Documents/OMI-Qwixx/training_results/bot1.npy"))
     q_bot2 = QBot("QBot2", None)
 
-    q_bot1.epsilon = 0.0
+    q_bot1.epsilon = 100.0
     q_bot2.epsilon = 0.0
 
     logger = EpisodeLogger("training_results/training_log.csv")
@@ -357,7 +357,7 @@ def start_training():
         game.train(False)
 
         id = q_bot1.get_id()
-        logger.log_episode(iteration, game.game_state.get_status(id), game.game_state.get_points()[id], q_bot1.theta)
+        logger.log_episode(iteration, game.game_state.get_status(id), game.game_state.get_points_all_players()[id], q_bot1.theta)
         q_bot1.reset()
         q_bot2.reset()
 
