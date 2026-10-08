@@ -40,7 +40,7 @@ class QBot(Player):
         self.last_features = None
         self.last_action = None
         self.last_q = None
-        self.features_count = 2
+        self.features_count = 5
 
         """Variables"""
         self.theta = np.full(self.features_count, 0.5)
@@ -50,7 +50,7 @@ class QBot(Player):
 
         self.epsilon_start = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9995
         self.epsilon = self.epsilon_start
 
     def reset(self):
@@ -66,26 +66,34 @@ class QBot(Player):
                 return i
         return -1
 
-    def get_features(self, game, action):
+    def get_features(self, game, actions):
         """Phi values for all features"""
 
-        MAX_POINTS = 266
-        MAX_POINTS_DIFFERENCE = MAX_POINTS 
+        MAX_POINTS_GAINED = 22
+        MAX_GAP = 11
+        MAX_CROSSES = 12
         id = self.get_id()
 
         """"Simluate the turns"""
         next_game = copy.deepcopy(game)
 
         board = next_game.lst_boards[id]
-        for cross in action: 
+        for cross in actions: 
             board.cross(cross, next_game.completed_lines, next_game.active_player)
 
-        """"Features"""
-        """"Difference in points"""
+        """Features"""
+        """1. Points gained"""
+        """2. Gap between placed number average(s) """
+        """3. Amount of crosses in row average """
+        """4. If the player can Lock a row """
+        """5. Stafrisico """
         
         features = np.array([
-            next_game.game_state.points_difference(id) / MAX_POINTS_DIFFERENCE,
-            1
+            (next_game.game_state.get_points_all_players()[id] - game.game_state.get_points_all_players()[id]) / MAX_POINTS_GAINED,
+            game.game_state.get_gap_av(id, actions) / MAX_GAP,
+            game.game_state.get_crosses_in_row_av(id, actions) / MAX_CROSSES,
+            game.game_state.can_lock(actions),
+            next_game.lst_boards[id].penalties - game.lst_boards[id].penalties
         ])
 
         return features

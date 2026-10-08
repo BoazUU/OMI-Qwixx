@@ -86,8 +86,13 @@ class EpisodeLogger:
             f"=IFERROR(AVERAGE(Episodes!C2:C{last}),0)"
         ])
         ws_s.append([
+                    "Winrate laatste 100",
+                    f"=IFERROR(COUNTIF(Episodes!B{last_100_start}:B{last}),1)"
+                ])
+        
+        ws_s.append([
             "Winrate laatste 100",
-            f"=IFERROR(AVERAGE(Episodes!B{last_100_start}:B{last}),0)"
+            f"=IFERROR(COUNTIF(Episodes!B{last_100_start}:B{last}),1) / 100"
         ])
 
         ws_s["B3"].number_format = "0.0%"
