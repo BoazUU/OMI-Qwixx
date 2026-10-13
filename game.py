@@ -336,12 +336,14 @@ def start_playing():
 def start_training():
     print("---STARTED---")
     
-    iterations = 25000
+    iterations = 100
 
-    q_bot1 = QBot("QBot1", None)
+    path = "C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"
+
+    q_bot1 = QBot("QBot1", loadQBot(path))
     q_bot2 = QBot("QBot2", None)
 
-    q_bot1.epsilon = 100.0
+    q_bot1.epsilon = 0.0
     q_bot2.epsilon = 0.0
 
     logger = EpisodeLogger("training_results/training_log.csv")
