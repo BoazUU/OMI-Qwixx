@@ -4,12 +4,15 @@ import numpy as np
 import copy
     
 
+    # ---------- helpers ----------
+ASC_ROWS = (0, 1)          # rood, geel: 2 -> 12
+LAST_FIELD = {0: 12, 1: 12, 2: 2, 3: 2}
+
 class QBot(Player):
     """ PLAYING """
 
-    def __init__(self, name, game, theta=None, ui=None):
+    def __init__(self, name, theta=None, ui=None):
         """Learn modus"""
-        self.game = game
         self.init()
         if (theta is not None):
             self.theta = theta
@@ -36,16 +39,17 @@ class QBot(Player):
         self.action_space = None
         self.finished = False
         self.status = False
+        self.last_gain = 0
 
         self.last_features = None
         self.last_action = None
         self.last_q = None
-        self.features_count = 5
+        self.features_count = 8
 
         """Variables"""
-        self.theta = np.full(self.features_count, 0.5)
+        self.theta = np.zeros(self.features_count)
         self.gamma = 0.99
-        self.alpha = 0.01
+        self.alpha = 0.1
         self.delta = None
 
         self.epsilon_start = 1.0
@@ -66,37 +70,93 @@ class QBot(Player):
                 return i
         return -1
 
+    def _no_voluntary_penalty(self, valid_turns):
+        others = [t for t in valid_turns if not (len(t) == 1 and t[0].row == 4)]
+        return others if others else valid_turns
+
+    def cross_active(self, lst_eyes, valid_turns, completed_lines):
+        return self.action(self._no_voluntary_penalty(valid_turns))
+
+    @staticmethod
+    def _p_sum(s):
+        """Kans dat 2 dobbelstenen samen s ogen geven."""
+        return (6 - abs(s - 7)) / 36
+
+    def _score(self, board):
+        pts = sum(n * (n + 1) // 2 for n in board.row_numbers[:4])
+        return pts - 5 * board.penalties
+
+    def _open_fields(self, crosses, row):
+        """Eerstvolgende vakjes die nog gekruist kunnen worden in een rij."""
+        if row in ASC_ROWS:
+            start = (max(crosses) + 1) if crosses else 2
+            return list(range(start, 13))
+        start = (min(crosses) - 1) if crosses else 12
+        return list(range(start, 1, -1))
+
+    def _reach_prob(self, board, completed_lines):
+        """Gemiddelde kans dat een van de volgende 3 vakjes per rij gegooid wordt."""
+        total, rows = 0.0, 0
+        for r in range(4):
+            if completed_lines[r]:
+                continue
+            nxt = self._open_fields(board.crosses_by_color[r], r)[:3]
+            total += min(1.0, sum(self._p_sum(s) for s in nxt))
+            rows += 1
+        return total / rows if rows else 0.0
+
+    def _skipped(self, board, actions):
+        """Aantal overgeslagen vakjes door deze zet."""
+        cur = {r: list(board.crosses_by_color[r]) for r in range(4)}
+        skipped = 0
+        for a in actions:
+            if a.row == 4 or a.eyes is None:
+                continue
+            c = cur[a.row]
+            if a.row in ASC_ROWS:
+                prev = max(c) if c else 1
+                skipped += a.eyes - prev - 1
+            else:
+                prev = min(c) if c else 13
+                skipped += prev - a.eyes - 1
+            c.append(a.eyes)
+        return max(0, skipped)
+
+    # ---------- features ----------
     def get_features(self, game, actions):
-        """Phi values for all features"""
-
-        MAX_POINTS_GAINED = 22
-        MAX_GAP = 11
-        MAX_CROSSES = 12
         id = self.get_id()
+        before = game.lst_boards[id]
+        opp = game.lst_boards[1 - id]
 
-        """"Simluate the turns"""
-        next_game = copy.deepcopy(game)
+        after = copy.deepcopy(before)
+        lines = list(game.completed_lines)
+        for cross in actions:
+            after.cross(cross, lines, game.active_player)
 
-        board = next_game.lst_boards[id]
-        for cross in actions: 
-            board.cross(cross, next_game.completed_lines, next_game.active_player)
+        took_penalty = 1.0 if any(a.row == 4 for a in actions) else 0.0
 
-        """Features"""
-        """1. Points gained"""
-        """2. Gap between placed number average(s) """
-        """3. Amount of crosses in row average """
-        """4. If the player can Lock a row """
-        """5. Stafrisico """
-        
-        features = np.array([
-            (next_game.game_state.get_points_all_players()[id] - game.game_state.get_points_all_players()[id]) / MAX_POINTS_GAINED,
-            game.game_state.get_gap_av(id, actions) / MAX_GAP,
-            game.game_state.get_crosses_in_row_av(id, actions) / MAX_CROSSES,
-            game.game_state.can_lock(actions),
-            next_game.lst_boards[id].penalties - game.lst_boards[id].penalties
+        can_lock = 0.0
+        for a in actions:
+            if a.row != 4 and a.eyes == LAST_FIELD[a.row] \
+                    and len(before.crosses_by_color[a.row]) >= 5:
+                can_lock = 1.0
+
+        my_after = self._score(after)
+        gain = my_after - self._score(before)
+        lead = max(-1.0, min(1.0, (my_after - self._score(opp)) / 30))
+        focus = max(after.row_numbers[:4]) / 12
+        self.last_gain = gain
+
+        return np.array([
+            1.0,                                                        # 0 bias
+            gain / 12,                                                  # 1 punten die deze zet oplevert
+            self._skipped(before, actions) / 11,                        # 2 overgeslagen vakjes (verspild)
+            self._reach_prob(after, lines) - self._reach_prob(before, game.completed_lines),  # 3 hoe haalbaar blijft de rest
+            focus,                                                      # 4 focus op 1 rij (punten zijn kwadratisch)
+            took_penalty,                                               # 5 strafpunt genomen
+            took_penalty * after.penalties / 4,                         # 6 gevaar: 4 strafpunten = einde spel
+            can_lock * lead,                                            # 7 rij sluiten terwijl je voor staat
         ])
-
-        return features
 
     def q_value(self, game, action, theta):
         """Calcualte Q value by: Q(s, a; theta) = phi(s, a)^T * theta """
@@ -132,9 +192,9 @@ class QBot(Player):
 
     def r(self):
         if (self.finished):
-            return self.game.game_state.get_status(self.get_id())
+            return self.game.game_state.get_status(self.get_id()) + self.last_gain / 12
         else:
-            return 0
+            return self.last_gain / 12
 
     def target(self, game, action_space, theta, gamma):
         """ Calculate target Q_value with the max q value of the next actions"""      
@@ -154,8 +214,9 @@ class QBot(Player):
 
     def update(self, action_space):
         """Update values"""
-        if (self.last_action == None):
+        if self.last_action is None:
             return
+        action_space = self._no_voluntary_penalty(action_space)
         
         target = self.target(self.game, action_space, self.theta, self.gamma)
         self.delta = target - self.last_q        

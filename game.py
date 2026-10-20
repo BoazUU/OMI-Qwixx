@@ -322,8 +322,8 @@ def start_playing():
     #             SampleStrategies.alpha_qwixx_bias)])
 
     """Playing the QBot"""
-    q_bot1 = QBot("QBot1", None, loadQBot("C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"))
-    q_bot2 = QBot("QBot2", None)
+    q_bot1 = QBot("QBot1", loadQBot("C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"))
+    q_bot2 = QBot("QBot2")
     game = Game([q_bot1, q_bot2])
     q_bot1.game = game
     q_bot2.game = game
@@ -336,19 +336,25 @@ def start_playing():
 """Training"""
 def start_training():
     print("---STARTED---")
-    
-    iterations = 100
 
-    q_bot1 = QBot("QBot1", None, loadQBot("C:/Users/j/Documents/OMI-Qwixx/training_results/bot1.npy"))
+    path = "C:/Users/j/Documents/OMI-Qwixx/training_results/bot1.npy"
+    iterations = 1000
+
+    q_bot1 = QBot("QBot1", loadQBot(path))
+    print(q_bot1.theta)
     q_bot2 = QBot("QBot2", None)
+    ai_player =  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor, SampleStrategies.alpha_qwixx_bias)
+    
+    q_bot1.epsilon = 0
+    q_bot1.epsilon_min = 0
+    q_bot1.alpha = 0
 
-    q_bot1.epsilon = 100.0
-    q_bot2.epsilon = 0.0
+    q_bot2.epsilon = 1.0
 
     logger = EpisodeLogger("training_results/training_log.csv")
 
     for iteration in range(iterations):
-        game = Game([q_bot1, q_bot2])
+        game = Game([q_bot1, ai_player])
 
         q_bot1.game = game
         q_bot2.game = game
