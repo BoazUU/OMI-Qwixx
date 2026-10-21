@@ -10,7 +10,6 @@ from ui_pygame import PyGameUi
 import pickle
 import numpy as np
 
-
 from bot_q_learning import QBot
 from game_state import GameState
 from episode_logger import EpisodeLogger
@@ -342,6 +341,9 @@ def start_training():
 
     q_bot1 = QBot("QBot1", loadQBot(path))
     print(q_bot1.theta)
+    path = "C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"
+
+    q_bot1 = QBot("QBot1", loadQBot(path))
     q_bot2 = QBot("QBot2", None)
     ai_player =  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor, SampleStrategies.alpha_qwixx_bias)
     
@@ -350,6 +352,9 @@ def start_training():
     q_bot1.alpha = 0
 
     q_bot2.epsilon = 1.0
+
+    q_bot1.epsilon = 0.0
+    q_bot2.epsilon = 0.0
 
     logger = EpisodeLogger("training_results/training_log.csv")
 

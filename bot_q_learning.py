@@ -54,7 +54,7 @@ class QBot(Player):
 
         self.epsilon_start = 1.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9995
         self.epsilon = self.epsilon_start
 
     def reset(self):
