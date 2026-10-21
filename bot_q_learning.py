@@ -3,9 +3,7 @@ import random
 import numpy as np
 import copy
     
-
-    # ---------- helpers ----------
-ASC_ROWS = (0, 1)          # rood, geel: 2 -> 12
+ASC_ROWS = (0, 1)      
 LAST_FIELD = {0: 12, 1: 12, 2: 2, 3: 2}
 
 class QBot(Player):

@@ -340,18 +340,12 @@ def start_training():
     iterations = 1000
 
     q_bot1 = QBot("QBot1", loadQBot(path))
-    print(q_bot1.theta)
-    path = "C:/Users/boazr/Documents/OMI-Qwixx/training_results/bot1.npy"
-
-    q_bot1 = QBot("QBot1", loadQBot(path))
     q_bot2 = QBot("QBot2", None)
     ai_player =  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor, SampleStrategies.alpha_qwixx_bias)
     
     q_bot1.epsilon = 0
     q_bot1.epsilon_min = 0
     q_bot1.alpha = 0
-
-    q_bot2.epsilon = 1.0
 
     q_bot1.epsilon = 0.0
     q_bot2.epsilon = 0.0
