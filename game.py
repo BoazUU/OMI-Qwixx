@@ -1,4 +1,9 @@
 """This file creates an algorithm (Game) that leads the game through its course"""
+import csv
+from datetime import datetime
+from pathlib import Path
+from statistics import mean, median, pstdev
+from time import perf_counter
 from typing import List, Tuple
 
 from dice import Dice
@@ -7,7 +12,6 @@ from ai_player import AiPlayer, SampleStrategies
 from simple_bot_player import SimpleBotPlayer
 from human_player import HumanPlayer
 from player import CrossPossibility, Player
-from ui_pygame import PyGameUi
 import pickle
 
 
@@ -49,6 +53,35 @@ class Game:
             ranking.append((player, points))
         ranking = sorted(ranking, key=lambda x: x[1], reverse=True)
         return ranking
+
+    def print_result(self) -> None:
+        """prints the final ranking and each player's board"""
+        ranking = self.compute_ranking()
+        highest_score = ranking[0][1]
+        winner_count = sum(points == highest_score for _, points in ranking)
+
+        print("Game result:")
+        scores = dict(ranking)
+        for player in self.lst_player:
+            points = scores[player]
+            if points == highest_score:
+                result = " (winner)" if winner_count == 1 else " (tied)"
+            else:
+                result = ""
+            print(f"{player.name}: {points:g} points{result}")
+
+            # board = self.lst_boards[self.lst_player.index(player)]
+            # for row in Row:
+            #     numbers = sorted(
+            #         eyes for eyes in board.crosses_by_color[row] if 2 <= eyes <= 12
+            #     )
+            #     if row in (Row.GREEN, Row.BLUE):
+            #         numbers.reverse()
+            #     crosses = ", ".join(map(str, numbers)) if numbers else "none"
+            #     is_closed = board.row_limits[row] == (13 if row in (Row.RED, Row.YELLOW) else 1)
+            #     closed = " (closed)" if is_closed else ""
+            #     print(f"   {row.name.capitalize()}: {crosses}{closed}")
+            # print(f"   Penalties: {board.penalties}")
 
     def _make_valid_turn(self, player_index, turn, valid_turns, is_active_player, previous_turn=None) -> bool:
         """checks validity of a turn"""
@@ -227,7 +260,7 @@ class Game:
             if len(turns) == 2:
                 is_turn_valid = self._make_valid_turn(player_index, turns[1], valid_turns, is_active_player, turns[0])
 
-    def play(self, prints_points=False) -> None:
+    def play(self, prints_points=False, prints_result=False) -> None:
         """manages the run of a game (Game Master) until the game is completed; directs when the players are prompted to
          do their turns; also used by the trainer"""
         game_in_progress = True
@@ -255,6 +288,9 @@ class Game:
                 if not game_in_progress:
                     break                   # todo execute turns for all players and evaluate turns (separate)
 
+        if prints_result:
+            self.print_result()
+
 
 def load_best_ai():
     """loads the AI that was saved"""
@@ -264,21 +300,142 @@ def load_best_ai():
     return best_ai
 
 
+def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: str = "game_stats.csv") -> None:
+    """Run a batch of bot games, append per-game results to CSV, and print score summaries."""
+    if game_count <= 0:
+        raise ValueError("game_count must be greater than zero.")
+    if not players or any(isinstance(player, HumanPlayer) for player in players):
+        raise ValueError("At least one bot player is required; human players cannot join a batch run.")
+
+    started_at = perf_counter()
+    stats_path = Path(stats_file)
+    write_header = not stats_path.exists() or stats_path.stat().st_size == 0
+    fieldnames = ("run_id", "game", "player", "score", "penalties", "winner", "tied")
+    if not write_header:
+        with stats_path.open("r", newline="", encoding="utf-8") as stats_input:
+            existing_fieldnames = next(csv.reader(stats_input), [])
+        missing_fieldnames = set(fieldnames) - set(existing_fieldnames)
+        if missing_fieldnames:
+            raise ValueError(
+                f"{stats_path} is missing required columns: {', '.join(sorted(missing_fieldnames))}"
+            )
+
+    run_id = datetime.now().astimezone().isoformat(timespec="microseconds")
+    scores_by_player: List[List[float]] = [[] for _ in players]
+    wins_by_player = [0 for _ in players]
+    ties_by_player = [0 for _ in players]
+
+    with stats_path.open("a", newline="", encoding="utf-8") as stats_output:
+        writer = csv.DictWriter(
+            stats_output,
+            fieldnames=fieldnames,
+        )
+        if write_header:
+            writer.writeheader()
+
+        for game_number in range(1, game_count + 1):
+            game = Game(players)
+            game.play()
+            scores = [player.get_points() for player in players]
+            highest_score = max(scores)
+            winner_count = scores.count(highest_score)
+
+            for player_index, (player, score) in enumerate(zip(players, scores)):
+                is_tied = score == highest_score and winner_count > 1
+                is_winner = score == highest_score and winner_count == 1
+                scores_by_player[player_index].append(score)
+                if is_winner:
+                    wins_by_player[player_index] += 1
+                if is_tied:
+                    ties_by_player[player_index] += 1
+                writer.writerow({
+                    "run_id": run_id,
+                    "game": game_number,
+                    "player": player.name,
+                    "score": score,
+                    "penalties": game.lst_boards[player_index].penalties,
+                    "winner": is_winner,
+                    "tied": is_tied,
+                })
+
+    print(f"\nResults for {game_count} games (logged to {stats_path}):")
+    for player_index, player in enumerate(players):
+        scores = scores_by_player[player_index]
+        print(
+            f"{player.name} (seat {player_index + 1}): "
+            f"wins {wins_by_player[player_index]}/{game_count}, "
+            f"ties {ties_by_player[player_index]}, "
+            f"win rate {wins_by_player[player_index] / game_count:.1%}, "
+            f"mean {mean(scores):.2f}, median {median(scores):.2f}, "
+            f"std dev {pstdev(scores):.2f}, min {min(scores):g}, max {max(scores):g}"
+        )
+
+    cumulative_scores = {}
+    cumulative_penalties = {}
+    cumulative_wins = {}
+    cumulative_ties = {}
+    logged_games = set()
+    with stats_path.open("r", newline="", encoding="utf-8") as stats_input:
+        reader = csv.DictReader(stats_input)
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                player_name = row["player"]
+                run = row["run_id"]
+                game_number = row["game"]
+                score = float(row["score"])
+                penalties = int(row["penalties"])
+                winner_value = row["winner"]
+                tied_value = row["tied"]
+                if not player_name or not run or not game_number:
+                    raise ValueError("player, run_id, and game must not be empty")
+                if winner_value not in ("True", "False") or tied_value not in ("True", "False"):
+                    raise ValueError("winner and tied must be True or False")
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(f"Invalid statistics data on row {row_number} of {stats_path}") from error
+
+            cumulative_scores.setdefault(player_name, []).append(score)
+            cumulative_penalties.setdefault(player_name, []).append(penalties)
+            cumulative_wins[player_name] = cumulative_wins.get(player_name, 0) + (winner_value == "True")
+            cumulative_ties[player_name] = cumulative_ties.get(player_name, 0) + (tied_value == "True")
+            logged_games.add((run, game_number))
+
+    print(f"\nCumulative results across {len(logged_games)} logged games ({stats_path}):")
+    for player_name, scores in cumulative_scores.items():
+        games_played = len(scores)
+        print(
+            f"{player_name}: games {games_played}, "
+            f"wins {cumulative_wins[player_name]}, ties {cumulative_ties[player_name]}, "
+            f"win rate {cumulative_wins[player_name] / games_played:.1%}, "
+            f"mean {mean(scores):.2f}, median {median(scores):.2f}, "
+            f"std dev {pstdev(scores):.2f}, min {min(scores):g}, max {max(scores):g}, "
+            f"mean penalties {mean(cumulative_penalties[player_name]):.2f}"
+        )
+
+    print(f"Elapsed time: {perf_counter() - started_at:.2f} seconds")
+
+
 if __name__ == "__main__":
-    ui = PyGameUi()
-    ui.show_board()
     # ai_opponent = load_best_ai()
 
+    players = [
+        # HumanPlayer("visitor"),
+        SimpleBotPlayer("Bot1"),
+        SimpleBotPlayer("Bot2"),
+        # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
+        #     SampleStrategies.alpha_qwixx_bias)
+    ]
+    has_human_player = any(isinstance(player, HumanPlayer) for player in players)
+    if has_human_player:
+        from ui_pygame import PyGameUi
 
+        ui = PyGameUi()
+        ui.show_board()
+        for player in players:
+            if isinstance(player, HumanPlayer):
+                player.ui = ui
 
-    # game = Game([HumanPlayer("meep", ui),
-                 # AiPlayer("meeep", np.random.randn(18), np.random.randn(18), np.random.randn(18))])
-
-    game = Game([
-                # HumanPlayer("visitor", ui),
-                SimpleBotPlayer("Bot1"),
-                SimpleBotPlayer("Bot2"),
-                # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
-                #     SampleStrategies.alpha_qwixx_bias)
-                ])
-    game.play(True)
+    if has_human_player:
+        game = Game(players)
+        game.play(prints_result=True)
+    else:
+        run_bot_games(players)
