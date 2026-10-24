@@ -13,7 +13,11 @@ from simple_bot_player import SimpleBotPlayer
 from human_player import HumanPlayer
 from player import CrossPossibility, Player
 import pickle
+import numpy as np
 
+from bot_q_learning import QBot
+from game_state import GameState
+from episode_logger import EpisodeLogger
 
 class Game:
     """role of the Game Master;
@@ -22,6 +26,7 @@ class Game:
     def __init__(self, lst_player):
         self.player_count = len(lst_player)
         self.lst_player = lst_player
+        self.active_player = 0
         self.lst_boards = []
         for index in range(self.player_count):
             self.lst_boards.append(Board())
@@ -29,6 +34,7 @@ class Game:
         self.dice = Dice()
         for player in lst_player:
             player.start_new_game()
+        self.game_state = GameState(self)
 
     def _is_completed(self) -> bool:
         """checks whether the game is completed"""
@@ -194,6 +200,9 @@ class Game:
         """creates a list of all possible fields to make a cross on (while passive player)"""
         possibility_lst = self._find_possible_white_white_sum(lst_eyes, player_index)
         possibility_lst.append([])
+
+        possibility_lst = self._filter_invalid_last_field_combinations(possibility_lst, player_index)
+        
         return possibility_lst
 
     def _check_possibility_rules(self, row, white_plus_a_dice_sum, player_index) -> List[List[CrossPossibility]]:
@@ -260,9 +269,7 @@ class Game:
             if len(turns) == 2:
                 is_turn_valid = self._make_valid_turn(player_index, turns[1], valid_turns, is_active_player, turns[0])
 
-    def play(self, prints_points=False, prints_result=False) -> None:
-        """manages the run of a game (Game Master) until the game is completed; directs when the players are prompted to
-         do their turns; also used by the trainer"""
+    def train(self, prints_points=False) -> None:
         game_in_progress = True
         while game_in_progress:
             for active_player_index in range(self.player_count):
@@ -270,11 +277,22 @@ class Game:
                 for player_index in range(self.player_count):
                     player = self.lst_player[player_index]
                     is_active_player = player_index == active_player_index
+                    self.active_player = is_active_player
                     if isinstance(player, HumanPlayer) and is_active_player:
                         self._make_turns_for_active_human_player(lst_eyes, player_index, player, is_active_player)
                     else:
-                        self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player,
-                                                                        is_active_player)
+                        """QBot specific actions"""
+                        if (isinstance(player, QBot)):
+                            """"Get all valid turn so q learn can update"""
+                            valid_turns = []
+                            if is_active_player:
+                                valid_turns = self._get_possibilities_active(lst_eyes, player_index)
+                            else:
+                                valid_turns = self._get_possibilities_passive(lst_eyes, player_index)
+                            player.update(valid_turns)
+                    
+                        self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player, is_active_player)
+                    
                     if self._is_completed():
                         game_in_progress = False
 
@@ -286,19 +304,79 @@ class Game:
                     self.lst_player[player_index].inform(self.lst_boards, player_index)
 
                 if not game_in_progress:
-                    break                   # todo execute turns for all players and evaluate turns (separate)
+                        break                   # todo execute turns for all players and evaluate turns (separate)
+        for player in self.lst_player:
+            if (isinstance(player, QBot)):
+                player.update_finished()
 
-        if prints_result:
-            self.print_result()
+    def play(self, prints_points=False) -> None:
+            """manages the run of a game (Game Master) until the game is completed; directs when the players are prompted to
+             do their turns; also used by the trainer"""
+            game_in_progress = True
+            while game_in_progress:
+                for active_player_index in range(self.player_count):
+                    lst_eyes = self.dice.throw_dice()
+                    for player_index in range(self.player_count):
+                        player = self.lst_player[player_index]
+                        is_active_player = player_index == active_player_index
+                        self.active_player = is_active_player
+                        if isinstance(player, HumanPlayer) and is_active_player:
+                            self._make_turns_for_active_human_player(lst_eyes, player_index, player, is_active_player)
+                        else:
+                            self._make_turns_for_ai_or_passive_human_player(lst_eyes, player_index, player, is_active_player)
+                        
+                        if self._is_completed():
+                            game_in_progress = False
+    
+                    if prints_points:
+                        print(self.compute_ranking())
+    
+                    # inform all players about new game situation AFTER they made their turns
+                    for player_index in range(self.player_count):
+                        self.lst_player[player_index].inform(self.lst_boards, player_index)
+    
+                    if not game_in_progress:
+                            break                   # todo execute turns for all players and evaluate turns (separate)
 
+def loadQBot(path):
+    return np.load(path)
 
-def load_best_ai():
-    """loads the AI that was saved"""
-    file = open("best_ai.dat", "rb")
-    best_ai = pickle.load(file)
-    file.close()
-    return best_ai
+"""Training"""
+def start_training():
+    print("---STARTED---")
 
+    path = "C:/Users/j/Documents/OMI-Qwixx/training_results/bot1.npy"
+    iterations = 1000
+
+    q_bot1 = QBot("QBot1", loadQBot(path))
+    q_bot2 = QBot("QBot2", None)
+    ai_player =  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor, SampleStrategies.alpha_qwixx_bias)
+    
+    q_bot1.epsilon = 0
+    q_bot1.epsilon_min = 0
+    q_bot1.alpha = 0
+
+    q_bot1.epsilon = 0.0
+    q_bot2.epsilon = 0.0
+
+    logger = EpisodeLogger("training_results/training_log.csv")
+
+    for iteration in range(iterations):
+        game = Game([q_bot1, ai_player])
+
+        q_bot1.game = game
+        q_bot2.game = game
+
+        print(f"Itteration: {iteration}")
+        game.train(False)
+
+        id = q_bot1.get_id()
+        logger.log_episode(iteration, game.game_state.get_status(id), game.game_state.get_points_all_players()[id], q_bot1.theta)
+        q_bot1.reset()
+        q_bot2.reset()
+
+    logger.stop(q_bot1.theta)
+    print("---TRAINING ENDED---")
 
 def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: str = "game_stats.csv") -> None:
     """Run a batch of bot games, append per-game results to CSV, and print score summaries."""
@@ -413,29 +491,32 @@ def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: st
 
     print(f"Elapsed time: {perf_counter() - started_at:.2f} seconds")
 
+def start_bot_games():
+    # ai_opponent = load_best_ai()
+    
+        players = [
+            # HumanPlayer("visitor"),
+            SimpleBotPlayer("Bot1"),
+            SimpleBotPlayer("Bot2"),
+            # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
+            #     SampleStrategies.alpha_qwixx_bias)
+        ]
+        has_human_player = any(isinstance(player, HumanPlayer) for player in players)
+        if has_human_player:
+            from ui_pygame import PyGameUi
+    
+            ui = PyGameUi()
+            ui.show_board()
+            for player in players:
+                if isinstance(player, HumanPlayer):
+                    player.ui = ui
+    
+        if has_human_player:
+            game = Game(players)
+            game.play(prints_result=True)
+        else:
+            run_bot_games(players)
 
 if __name__ == "__main__":
-    # ai_opponent = load_best_ai()
-
-    players = [
-        # HumanPlayer("visitor"),
-        SimpleBotPlayer("Bot1"),
-        SimpleBotPlayer("Bot2"),
-        # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
-        #     SampleStrategies.alpha_qwixx_bias)
-    ]
-    has_human_player = any(isinstance(player, HumanPlayer) for player in players)
-    if has_human_player:
-        from ui_pygame import PyGameUi
-
-        ui = PyGameUi()
-        ui.show_board()
-        for player in players:
-            if isinstance(player, HumanPlayer):
-                player.ui = ui
-
-    if has_human_player:
-        game = Game(players)
-        game.play(prints_result=True)
-    else:
-        run_bot_games(players)
+    start_bot_games()
+      

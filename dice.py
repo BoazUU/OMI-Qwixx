@@ -18,7 +18,7 @@ class Dice:
         # return [3, 4, 1, 1, 1, 1]
 
     def throw_dice_test(self):
-            """creates a random list of eyes of 6 dice"""
+            """creates a predefined list of dice"""
             lst = [
             [1, 1, 1, 1, 1, 1],
             [2, 2, 1, 1, 1, 1],
