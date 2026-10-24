@@ -5,6 +5,7 @@ from pathlib import Path
 from statistics import mean, median, pstdev
 from time import perf_counter
 from typing import List, Tuple
+import os
 
 from dice import Dice
 from board import Board, Row
@@ -345,11 +346,12 @@ def loadQBot(path):
 def start_training():
     print("---STARTED---")
 
-    path = "C:/Users/j/Documents/OMI-Qwixx/training_results/bot1.npy"
+    path = os.getcwd() + "/QBOT.npy"
     iterations = 1000
 
     q_bot1 = QBot("QBot1", loadQBot(path))
     q_bot2 = QBot("QBot2", None)
+    bot3 = SimpleBotPlayer("Bot3")
     ai_player =  AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor, SampleStrategies.alpha_qwixx_bias)
     
     q_bot1.epsilon = 0
@@ -362,7 +364,7 @@ def start_training():
     logger = EpisodeLogger("training_results/training_log.csv")
 
     for iteration in range(iterations):
-        game = Game([q_bot1, ai_player])
+        game = Game([q_bot1, bot3])
 
         q_bot1.game = game
         q_bot2.game = game
@@ -413,6 +415,12 @@ def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: st
 
         for game_number in range(1, game_count + 1):
             game = Game(players)
+
+            """QBOT specifc code"""
+            for player in players:
+                if isinstance(player, QBot):
+                    player.game = game
+
             game.play()
             scores = [player.get_points() for player in players]
             highest_score = max(scores)
@@ -493,14 +501,16 @@ def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: st
 
 def start_bot_games():
     # ai_opponent = load_best_ai()
-    
+
         players = [
             # HumanPlayer("visitor"),
-            SimpleBotPlayer("Bot1"),
+            QBot("QBot1", loadQBot(os.getcwd() + "/QBOT.npy")),
+            #SimpleBotPlayer("Bot1"),
             SimpleBotPlayer("Bot2"),
             # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
             #     SampleStrategies.alpha_qwixx_bias)
         ]
+
         has_human_player = any(isinstance(player, HumanPlayer) for player in players)
         if has_human_player:
             from ui_pygame import PyGameUi
@@ -515,8 +525,8 @@ def start_bot_games():
             game = Game(players)
             game.play(prints_result=True)
         else:
-            run_bot_games(players)
+            run_bot_games(players, 1000)
 
 if __name__ == "__main__":
-    start_bot_games()
+    start_training()
       

@@ -9,9 +9,10 @@ LAST_FIELD = {0: 12, 1: 12, 2: 2, 3: 2}
 class QBot(Player):
     """ PLAYING """
 
-    def __init__(self, name, theta=None, ui=None):
+    def __init__(self, name, theta=None, ui=None, training=False):
         """Learn modus"""
         self.init()
+        self.training = training
         if (theta is not None):
             self.theta = theta
         super().__init__(name, ui)
@@ -33,7 +34,7 @@ class QBot(Player):
         and comparing it with the q values of the best next state.
         With this you update the theta values
         """
-        
+        self.game = None
         self.action_space = None
         self.finished = False
         self.status = False
@@ -46,13 +47,21 @@ class QBot(Player):
 
         """Variables"""
         self.theta = np.zeros(self.features_count)
-        self.gamma = 0.99
-        self.alpha = 0.1
-        self.delta = None
+        
+        if self.training == False:
+            self.gamma = 0.00
+            self.alpha = 0.00
+            self.epsilon_start = 0.00
+            self.epsilon_min = 0.00
+            self.epsilon_decay = 0.00
+        else:
+            self.gamma = 0.99
+            self.alpha = 0.1
+            self.epsilon_start = 1.0
+            self.epsilon_min = 0.05
+            self.epsilon_decay = 0.9995
 
-        self.epsilon_start = 1.0
-        self.epsilon_min = 0.05
-        self.epsilon_decay = 0.9995
+        self.delta = None
         self.epsilon = self.epsilon_start
 
     def reset(self):
