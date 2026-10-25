@@ -11,6 +11,7 @@ from dice import Dice
 from board import Board, Row
 from ai_player import AiPlayer, SampleStrategies
 from simple_bot_player import SimpleBotPlayer
+from heuristic_bot_player import HeuristicBotPlayer
 from human_player import HumanPlayer
 from player import CrossPossibility, Player
 import pickle
@@ -18,7 +19,6 @@ import numpy as np
 
 from bot_q_learning import QBot
 from game_state import GameState
-from episode_logger import EpisodeLogger
 
 class Game:
     """role of the Game Master;
@@ -344,6 +344,8 @@ def loadQBot(path):
 
 """Training"""
 def start_training():
+    from episode_logger import EpisodeLogger
+
     print("---STARTED---")
 
     path = os.getcwd() + "/QBOT.npy"
@@ -380,7 +382,7 @@ def start_training():
     logger.stop(q_bot1.theta)
     print("---TRAINING ENDED---")
 
-def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: str = "game_stats.csv") -> None:
+def run_bot_games(players: List[Player], game_count: int = 1000, stats_file: str = "game_stats.csv") -> None:
     """Run a batch of bot games, append per-game results to CSV, and print score summaries."""
     if game_count <= 0:
         raise ValueError("game_count must be greater than zero.")
@@ -456,46 +458,46 @@ def run_bot_games(players: List[Player], game_count: int = 10000, stats_file: st
             f"std dev {pstdev(scores):.2f}, min {min(scores):g}, max {max(scores):g}"
         )
 
-    cumulative_scores = {}
-    cumulative_penalties = {}
-    cumulative_wins = {}
-    cumulative_ties = {}
-    logged_games = set()
-    with stats_path.open("r", newline="", encoding="utf-8") as stats_input:
-        reader = csv.DictReader(stats_input)
-        for row_number, row in enumerate(reader, start=2):
-            try:
-                player_name = row["player"]
-                run = row["run_id"]
-                game_number = row["game"]
-                score = float(row["score"])
-                penalties = int(row["penalties"])
-                winner_value = row["winner"]
-                tied_value = row["tied"]
-                if not player_name or not run or not game_number:
-                    raise ValueError("player, run_id, and game must not be empty")
-                if winner_value not in ("True", "False") or tied_value not in ("True", "False"):
-                    raise ValueError("winner and tied must be True or False")
-            except (KeyError, TypeError, ValueError) as error:
-                raise ValueError(f"Invalid statistics data on row {row_number} of {stats_path}") from error
+    # cumulative_scores = {}
+    # cumulative_penalties = {}
+    # cumulative_wins = {}
+    # cumulative_ties = {}
+    # logged_games = set()
+    # with stats_path.open("r", newline="", encoding="utf-8") as stats_input:
+    #     reader = csv.DictReader(stats_input)
+    #     for row_number, row in enumerate(reader, start=2):
+    #         try:
+    #             player_name = row["player"]
+    #             run = row["run_id"]
+    #             game_number = row["game"]
+    #             score = float(row["score"])
+    #             penalties = int(row["penalties"])
+    #             winner_value = row["winner"]
+    #             tied_value = row["tied"]
+    #             if not player_name or not run or not game_number:
+    #                 raise ValueError("player, run_id, and game must not be empty")
+    #             if winner_value not in ("True", "False") or tied_value not in ("True", "False"):
+    #                 raise ValueError("winner and tied must be True or False")
+    #         except (KeyError, TypeError, ValueError) as error:
+    #             raise ValueError(f"Invalid statistics data on row {row_number} of {stats_path}") from error
 
-            cumulative_scores.setdefault(player_name, []).append(score)
-            cumulative_penalties.setdefault(player_name, []).append(penalties)
-            cumulative_wins[player_name] = cumulative_wins.get(player_name, 0) + (winner_value == "True")
-            cumulative_ties[player_name] = cumulative_ties.get(player_name, 0) + (tied_value == "True")
-            logged_games.add((run, game_number))
+    #         cumulative_scores.setdefault(player_name, []).append(score)
+    #         cumulative_penalties.setdefault(player_name, []).append(penalties)
+    #         cumulative_wins[player_name] = cumulative_wins.get(player_name, 0) + (winner_value == "True")
+    #         cumulative_ties[player_name] = cumulative_ties.get(player_name, 0) + (tied_value == "True")
+    #         logged_games.add((run, game_number))
 
-    print(f"\nCumulative results across {len(logged_games)} logged games ({stats_path}):")
-    for player_name, scores in cumulative_scores.items():
-        games_played = len(scores)
-        print(
-            f"{player_name}: games {games_played}, "
-            f"wins {cumulative_wins[player_name]}, ties {cumulative_ties[player_name]}, "
-            f"win rate {cumulative_wins[player_name] / games_played:.1%}, "
-            f"mean {mean(scores):.2f}, median {median(scores):.2f}, "
-            f"std dev {pstdev(scores):.2f}, min {min(scores):g}, max {max(scores):g}, "
-            f"mean penalties {mean(cumulative_penalties[player_name]):.2f}"
-        )
+    # print(f"\nCumulative results across {len(logged_games)} logged games ({stats_path}):")
+    # for player_name, scores in cumulative_scores.items():
+    #     games_played = len(scores)
+    #     print(
+    #         f"{player_name}: games {games_played}, "
+    #         f"wins {cumulative_wins[player_name]}, ties {cumulative_ties[player_name]}, "
+    #         f"win rate {cumulative_wins[player_name] / games_played:.1%}, "
+    #         f"mean {mean(scores):.2f}, median {median(scores):.2f}, "
+    #         f"std dev {pstdev(scores):.2f}, min {min(scores):g}, max {max(scores):g}, "
+    #         f"mean penalties {mean(cumulative_penalties[player_name]):.2f}"
+    #     )
 
     print(f"Elapsed time: {perf_counter() - started_at:.2f} seconds")
 
@@ -504,8 +506,9 @@ def start_bot_games():
 
         players = [
             # HumanPlayer("visitor"),
-            QBot("QBot1", loadQBot(os.getcwd() + "/QBOT.npy")),
-            #SimpleBotPlayer("Bot1"),
+            # QBot("QBot1", loadQBot(os.getcwd() + "/QBOT.npy")),
+            # SimpleBotPlayer("Bot1"),
+            HeuristicBotPlayer("Bot1"),
             SimpleBotPlayer("Bot2"),
             # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
             #     SampleStrategies.alpha_qwixx_bias)
@@ -523,10 +526,11 @@ def start_bot_games():
     
         if has_human_player:
             game = Game(players)
-            game.play(prints_result=True)
+            game.play()
+            game.print_result()
         else:
-            run_bot_games(players, 1000)
+            run_bot_games(players)
 
 if __name__ == "__main__":
-    start_training()
+    start_bot_games()
       
