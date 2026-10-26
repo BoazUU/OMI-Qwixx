@@ -34,6 +34,7 @@ class QBot(Player):
         and comparing it with the q values of the best next state.
         With this you update the theta values
         """
+        self.training = False
         self.game = None
         self.action_space = None
         self.finished = False

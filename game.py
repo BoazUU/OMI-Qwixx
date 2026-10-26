@@ -19,6 +19,7 @@ import numpy as np
 from bot_q_learning import QBot
 from game_state import GameState
 from episode_logger import EpisodeLogger
+from heuristic_bot_player import HeuristicBotPlayer
 
 class Game:
     """role of the Game Master;
@@ -506,7 +507,7 @@ def start_bot_games():
             # HumanPlayer("visitor"),
             QBot("QBot1", loadQBot(os.getcwd() + "/QBOT.npy")),
             #SimpleBotPlayer("Bot1"),
-            SimpleBotPlayer("Bot2"),
+            HeuristicBotPlayer("Bot2"),
             # AiPlayer("", SampleStrategies.alpha_qwixx_quadratic_factor, SampleStrategies.alpha_qwixx_linear_factor,
             #     SampleStrategies.alpha_qwixx_bias)
         ]
@@ -525,8 +526,8 @@ def start_bot_games():
             game = Game(players)
             game.play(prints_result=True)
         else:
-            run_bot_games(players, 1000)
+            run_bot_games(players, 5000)
 
 if __name__ == "__main__":
-    start_training()
+    start_bot_games()
       
